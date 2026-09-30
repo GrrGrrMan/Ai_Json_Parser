@@ -1,1 +1,39 @@
-.samples/
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production build outputs (Built on GitHub Actions runner)
+dist/
+dist-ssr/
+build/
+*.local
+
+# Cache and temporary data
+.cache/
+*.tmp
+*.crdownload
+.eslintcache
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS Metadata
+Thumbs.db
+[Dd]esktop.ini
+.DS_Store
+
+# Editor configurations
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
