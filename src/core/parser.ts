@@ -1,77 +1,78 @@
-/**
- * src/core/parser.ts
- * Parses Google AI Studio JSON exports into a normalized Turn AST.
- */
+// src/core/parser.ts
+import { ConversationDocument, ConversationTurn, RoleType } from "./types";
 
-import {
-  ConversationDocument,
-  ConversationTurn,
-  RoleType,
-  CodeExecutionData,
-  GroundingCitation,
-} from "./types";
-
-/**
- * Verify whether an object matches the expected Google AI Studio export structure.
- */
-export function isValidAiStudioExport(data: any): boolean {
-  if (!data || typeof data !== "object") return false;
-  return Array.isArray(data?.chunkedPrompt?.chunks);
+export interface ParseResult {
+  document?: ConversationDocument;
+  error?: {
+    fileName: string;
+    reason: string;
+    rawSnippet?: string;
+  };
 }
 
 /**
- * Extract system instructions from the export if available.
+ * Sanitizes JSON strings by removing single/multi-line comments and trailing commas.
  */
-export function extractSystemInstruction(data: any): string {
-  if (!data || typeof data !== "object") return "";
-
-  // Structure 1: Root systemInstruction.parts
-  if (Array.isArray(data?.systemInstruction?.parts)) {
-    return data.systemInstruction.parts
-      .map((p: any) => (typeof p?.text === "string" ? p.text.trim() : ""))
-      .filter(Boolean)
-      .join("\n\n");
-  }
-
-  // Structure 2: chunkedPrompt.systemInstruction
-  const chunkedSys = data?.chunkedPrompt?.systemInstruction;
-  if (typeof chunkedSys === "string") return chunkedSys.trim();
-  if (Array.isArray(chunkedSys?.parts)) {
-    return chunkedSys.parts
-      .map((p: any) => (typeof p?.text === "string" ? p.text.trim() : ""))
-      .filter(Boolean)
-      .join("\n\n");
-  }
-
-  return "";
+export function sanitizeJsonString(raw: string): string {
+  return raw
+    .replace(/\/\*[\s\S]*?\*\/|([^\\:]|^)\/\/.*$/gm, "$1") // Remove comments
+    .replace(/,\s*([\]}])/g, "$1")                         // Remove trailing commas
+    .trim();
 }
 
 /**
- * Parse an AI Studio export payload into a ConversationDocument AST.
+ * Normalizes different Google AI Studio and Gemini API export schemas.
  */
-export function parseAiStudioJson(
-  rawJsonString: string,
-  fileName: string
-): ConversationDocument {
-  const data = JSON.parse(rawJsonString);
+export function parseAiStudioJson(rawText: string, fileName: string): ConversationDocument {
+  let data: any;
 
-  if (!isValidAiStudioExport(data)) {
-    throw new Error("Invalid AI Studio file: Missing 'chunkedPrompt.chunks' array.");
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    // Attempt fallback to sanitized JSON
+    data = JSON.parse(sanitizeJsonString(rawText));
   }
 
-  const rawChunks: any[] = data.chunkedPrompt.chunks;
+  if (!data || typeof data !== "object") {
+    throw new Error("File content is not a valid JSON object.");
+  }
+
+  // Schema Strategy 1: Standard AI Studio Chunked Prompt
+  let rawChunks: any[] = [];
+  let systemInstruction = "";
+
+  if (Array.isArray(data?.chunkedPrompt?.chunks)) {
+    rawChunks = data.chunkedPrompt.chunks;
+    systemInstruction = extractSystemInstruction(data);
+  } 
+  // Schema Strategy 2: Gemini API / Vertex AI `contents` structure
+  else if (Array.isArray(data?.contents)) {
+    rawChunks = data.contents.flatMap((content: any) => 
+      (content.parts || []).map((part: any) => ({
+        role: content.role || "user",
+        text: part.text || "",
+        executableCode: part.executableCode,
+        codeExecutionResult: part.codeExecutionResult,
+        isThought: Boolean(part.thought),
+      }))
+    );
+    if (data?.systemInstruction?.parts) {
+      systemInstruction = data.systemInstruction.parts.map((p: any) => p.text).join("\n\n");
+    }
+  } else {
+    throw new Error(
+      "Unrecognized schema: Expected 'chunkedPrompt.chunks' or 'contents' array."
+    );
+  }
+
   const turns: ConversationTurn[] = [];
-  const systemInstruction = extractSystemInstruction(data);
-
   let turnIndex = 1;
 
   for (const chunk of rawChunks) {
     const text: string = typeof chunk?.text === "string" ? chunk.text.trim() : "";
-    const isThought: boolean = Boolean(chunk?.isThought);
+    const isThought: boolean = Boolean(chunk?.isThought || chunk?.thought);
 
-    let codeExecution: CodeExecutionData | undefined;
-
-    // Check for Python sandbox code execution blocks
+    let codeExecution;
     if (chunk?.executableCode || chunk?.codeExecutionResult) {
       codeExecution = {
         language: chunk?.executableCode?.language || "python",
@@ -81,37 +82,25 @@ export function parseAiStudioJson(
       };
     }
 
-    // Check for search citations
-    let citations: GroundingCitation[] | undefined;
-    if (Array.isArray(chunk?.groundingMetadata?.groundingChunks)) {
-      citations = chunk.groundingMetadata.groundingChunks
-        .map((c: any) => ({
-          uri: c?.web?.uri,
-          title: c?.web?.title,
-        }))
-        .filter((c: GroundingCitation) => Boolean(c.uri));
-    }
+    if (!text && !codeExecution?.code && !codeExecution?.output) continue;
 
-    // Skip empty chunks that have neither text nor code execution
-    if (!text && !codeExecution?.code && !codeExecution?.output) {
-      continue;
-    }
-
-    const role: RoleType = (chunk?.role || "model").toLowerCase() as RoleType;
+    const role: RoleType = (chunk?.role || "model").toLowerCase() === "user" ? "user" : "model";
 
     turns.push({
       id: crypto.randomUUID(),
       turnNumber: turnIndex++,
-      role: role === "user" ? "user" : "model",
+      role,
       rawText: text,
       isThought,
       excluded: false,
       codeExecution,
-      citations,
     });
   }
 
-  // Generate document title
+  if (turns.length === 0 && !systemInstruction) {
+    throw new Error("The conversation file contains no readable turns or prompt data.");
+  }
+
   const cleanTitle = fileName
     .replace(/\.[^/.]+$/, "")
     .replace(/[_-]+/g, " ")
@@ -123,7 +112,7 @@ export function parseAiStudioJson(
     title: cleanTitle || "Untitled Chat",
     systemInstruction,
     turns,
-    rawJsonString,
+    rawJsonString: rawText,
     status: "ready",
     createdAt: Date.now(),
   };

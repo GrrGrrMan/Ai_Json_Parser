@@ -37,7 +37,11 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+<<<<<<< Updated upstream
 
 # Sample datasets & thread dumps
 .samples/
 samples/
+=======
+.samples
+>>>>>>> Stashed changes
