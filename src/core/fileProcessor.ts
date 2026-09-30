@@ -22,14 +22,19 @@ export async function processInputFiles(files: FileList | File[]): Promise<Batch
         });
 
         for (const [path, data] of Object.entries(unzipped)) {
-          // Ignore directories, system files, and non-JSON files
-          if (path.endsWith("/") || path.includes("__MACOSX/") || !path.toLowerCase().endsWith(".json")) {
+          const baseName = path.split("/").pop() || path;
+          const isKnownBinary = /\.(png|jpe?g|gif|webp|zip|tar|gz|bin|exe|pdf)$/i.test(baseName);
+
+          // Skip directories, OS metadata, and binary assets
+          if (path.endsWith("/") || path.includes("__MACOSX/") || isKnownBinary) {
             continue;
           }
 
-          const baseName = path.split("/").pop() || path;
           try {
-            const text = strFromU8(data);
+            const text = strFromU8(data).trim();
+            // Only process text payloads structured as JSON
+            if (!text.startsWith("{")) continue;
+
             const doc = parseAiStudioJson(text, baseName);
             report.loaded.push(doc);
           } catch (err) {
@@ -45,9 +50,13 @@ export async function processInputFiles(files: FileList | File[]): Promise<Batch
           reason: `Corrupted ZIP archive: ${zipErr instanceof Error ? zipErr.message : String(zipErr)}`,
         });
       }
-    } else if (file.name.toLowerCase().endsWith(".json")) {
+    } else {
+      // Ingest direct files (supports .json, .txt, or extensionless Google AI Studio exports)
       try {
-        const text = await file.text();
+        const text = (await file.text()).trim();
+        if (!text.startsWith("{")) {
+          throw new Error("File content is not valid JSON (expected opening '{').");
+        }
         const doc = parseAiStudioJson(text, file.name);
         report.loaded.push(doc);
       } catch (err) {
@@ -56,11 +65,6 @@ export async function processInputFiles(files: FileList | File[]): Promise<Batch
           reason: err instanceof Error ? err.message : String(err),
         });
       }
-    } else {
-      report.skipped.push({
-        fileName: file.name,
-        reason: "Unsupported file type. Please provide .json or .zip exports.",
-      });
     }
   }
 

@@ -29,12 +29,9 @@ export const Dropzone: React.FC = () => {
       className="relative bg-app-panel border border-dashed border-app-border-medium hover:border-indigo-500 rounded-xl p-6 text-center transition-colors group cursor-pointer"
       onClick={() => fileInputRef.current?.click()}
     >
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept=".json,.zip"
-        className="hidden"
+      <p className="text-xs text-zinc-400 mt-1 mb-4">
+        Supports <span className="font-mono text-zinc-300">.json</span>, extensionless AI Studio exports, or bulk <span className="font-mono text-zinc-300">.zip</span> archives
+      </p>
         onChange={(e) => {
           if (e.target.files?.length) {
             handleFiles(e.target.files);
