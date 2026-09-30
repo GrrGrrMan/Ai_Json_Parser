@@ -1,5 +1,5 @@
-import React from "react";
-import { CheckSquare, Square, Trash2, Download } from "lucide-react";
+import React, { useState } from "react";
+import { CheckSquare, Square, Trash2, Download, Copy, Check } from "lucide-react";
 import { useWorkspaceStore } from "../store/useWorkspaceStore";
 import { compileDocument } from "../core/formatter";
 import { estimateTokens } from "../core/tokenizer";
@@ -17,9 +17,17 @@ export const DocumentTable: React.FC = () => {
     removeSelectedDocuments,
   } = useWorkspaceStore();
 
+  const [copiedDocId, setCopiedDocId] = useState<string | null>(null);
+
   if (documents.length === 0) return null;
 
   const allSelected = documents.length > 0 && selectedDocIds.length === documents.length;
+
+  const handleCopyDocument = async (text: string, id: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedDocId(id);
+    setTimeout(() => setCopiedDocId(null), 1500);
+  };
 
   return (
     <div className="bg-app-panel border border-app-border rounded-xl overflow-hidden flex flex-col">
@@ -81,6 +89,17 @@ export const DocumentTable: React.FC = () => {
                   <td className="py-2 px-3 text-zinc-400">{doc.turns.filter((t) => !t.excluded).length} / {doc.turns.length}</td>
                   <td className="py-2 px-3 font-mono text-zinc-400">{tokens.toLocaleString()}</td>
                   <td className="py-2 px-3 text-right space-x-1.5" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => handleCopyDocument(compiled, doc.id)}
+                      className="p-1 rounded hover:bg-zinc-700 text-zinc-300 transition-colors"
+                      title="Copy compiled document"
+                    >
+                      {copiedDocId === doc.id ? (
+                        <Check size={13} className="text-emerald-400" />
+                      ) : (
+                        <Copy size={13} />
+                      )}
+                    </button>
                     <button
                       onClick={() => {
                         const blob = new Blob([compiled], { type: "text/plain;charset=utf-8" });

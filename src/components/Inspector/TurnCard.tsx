@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Eye, EyeOff, Trash2, Brain, Terminal, Edit3 } from "lucide-react";
+import { Eye, EyeOff, Trash2, Brain, Terminal, Edit3, Copy, Check } from "lucide-react";
 import { ConversationTurn } from "../../core/types";
 import { useWorkspaceStore } from "../../store/useWorkspaceStore";
 import { estimateTokens } from "../../core/tokenizer";
@@ -14,9 +14,16 @@ export const TurnCard: React.FC<TurnCardProps> = ({ turn, docId }) => {
     useWorkspaceStore();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [editText, setEditText] = useState(turn.customText !== undefined ? turn.customText : turn.rawText);
 
   const displayText = turn.customText !== undefined ? turn.customText : turn.rawText;
+
+  const handleCopyTurn = async () => {
+    await navigator.clipboard.writeText(displayText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
   const tokenEst = estimateTokens(displayText);
 
   return (
@@ -42,6 +49,13 @@ export const TurnCard: React.FC<TurnCardProps> = ({ turn, docId }) => {
         </div>
 
         <div className="flex items-center gap-1">
+          <button
+            onClick={handleCopyTurn}
+            className="p-1 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+            title="Copy turn content"
+          >
+            {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+          </button>
           <button
             onClick={() => setIsEditing(!isEditing)}
             className="p-1 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"

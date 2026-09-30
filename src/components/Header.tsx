@@ -37,12 +37,8 @@ export const Header: React.FC = () => {
           <MessageSquareText size={18} />
         </div>
         <div>
-          <h1 className="text-sm font-semibold tracking-tight text-zinc-100 flex items-center gap-2">
+          <h1 className="text-sm font-semibold tracking-tight text-zinc-100">
             AI Studio Chat Exporter
-            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium inline-flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              100% Client-Side
-            </span>
           </h1>
           <p className="text-xs text-zinc-400">Turn raw JSON logs into Obsidian vaults, LLM context, or clean prose</p>
         </div>
@@ -59,7 +55,7 @@ export const Header: React.FC = () => {
           </button>
         )}
         <a
-          href="https://github.com"
+          href="https://github.com/GrrGrrMan/Ai_Json_Parser"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/50 transition-colors"
