@@ -36,7 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onActionComplete }) => {
           {(["obsidian", "llm-context", "clean-prose", "raw"] as ExportPreset[]).map((p) => (
             <button
               key={p}
-              onClick={() => setPreset(p)}
+              onClick={() => handleSelectPreset(p)}
               className={`px-2.5 py-1.5 text-xs rounded-md font-medium text-left capitalize transition-colors ${
                 config.preset === p
                   ? "bg-indigo-600 text-white"
