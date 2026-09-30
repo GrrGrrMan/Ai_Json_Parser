@@ -48,9 +48,20 @@ export const TurnList: React.FC = () => {
 
       {/* Virtualized/Scrollable Turn List */}
       <div className="space-y-3 overflow-y-auto flex-1 pr-1">
-        {activeDoc.turns.map((turn) => (
-          <TurnCard key={turn.id} turn={turn} docId={activeDoc.id} />
-        ))}
+        {activeDoc.turns.map((turn, index) => {
+          const total = activeDoc.turns.length;
+          const isOutsideWindow =
+            config.sliceLastNTurns > 0 && index < total - config.sliceLastNTurns;
+
+          return (
+            <TurnCard
+              key={turn.id}
+              turn={turn}
+              docId={activeDoc.id}
+              isOutsideWindow={isOutsideWindow}
+            />
+          );
+        })}
       </div>
     </div>
   );

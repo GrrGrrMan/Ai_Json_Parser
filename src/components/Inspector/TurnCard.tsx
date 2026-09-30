@@ -7,15 +7,24 @@ import { estimateTokens } from "../../core/tokenizer";
 interface TurnCardProps {
   turn: ConversationTurn;
   docId: string;
+  isOutsideWindow?: boolean;
 }
 
-export const TurnCard: React.FC<TurnCardProps> = ({ turn, docId }) => {
-  const { toggleTurnExcluded, updateTurnText, deleteTurn, deleteTurnThought, deleteTurnCodeExec } =
-    useWorkspaceStore();
+export const TurnCard: React.FC<TurnCardProps> = ({ turn, docId, isOutsideWindow = false }) => {
+  const {
+    config,
+    toggleTurnExcluded,
+    updateTurnText,
+    deleteTurn,
+    deleteTurnThought,
+    deleteTurnCodeExec,
+  } = useWorkspaceStore();
 
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [editText, setEditText] = useState(turn.customText !== undefined ? turn.customText : turn.rawText);
+  const [editText, setEditText] = useState(
+    turn.customText !== undefined ? turn.customText : turn.rawText
+  );
 
   const displayText = turn.customText !== undefined ? turn.customText : turn.rawText;
 
@@ -24,18 +33,34 @@ export const TurnCard: React.FC<TurnCardProps> = ({ turn, docId }) => {
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
-  const tokenEst = estimateTokens(displayText);
+
+  // Evaluate impacts of global settings on this specific card
+  const isThoughtOmitted = turn.isThought && config.thoughtMode === "omit";
+  const isContentOmitted = !turn.isThought && config.thoughtMode === "only";
+  const isCodeStripped = Boolean(turn.codeExecution && config.codeExecMode === "strip-all");
+  const isOutputStripped = Boolean(turn.codeExecution && config.codeExecMode === "strip-output");
+
+  const isEffectivelyOmitted =
+    turn.excluded || isOutsideWindow || isThoughtOmitted || isContentOmitted;
+
+  // Calculate live effective tokens based on active settings
+  let effectiveText = isEffectivelyOmitted ? "" : displayText;
+  if (!isEffectivelyOmitted && turn.codeExecution && !isCodeStripped) {
+    if (turn.codeExecution.code) effectiveText += turn.codeExecution.code;
+    if (turn.codeExecution.output && !isOutputStripped) effectiveText += turn.codeExecution.output;
+  }
+  const tokenEst = estimateTokens(effectiveText);
 
   return (
     <div
       className={`border rounded-xl p-3.5 transition-all ${
-        turn.excluded
-          ? "border-zinc-800 bg-zinc-900/30 opacity-60"
+        isEffectivelyOmitted
+          ? "border-zinc-800/80 bg-zinc-900/20 opacity-50"
           : "border-app-border bg-app-card hover:border-zinc-700"
       }`}
     >
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span
             className={`px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider ${
               turn.role === "user"
@@ -45,7 +70,24 @@ export const TurnCard: React.FC<TurnCardProps> = ({ turn, docId }) => {
           >
             Turn {turn.turnNumber}: {turn.role}
           </span>
-          <span className="text-[11px] font-mono text-zinc-500">~{tokenEst} tokens</span>
+          <span className={`text-[11px] font-mono ${isEffectivelyOmitted ? "line-through text-zinc-600" : "text-zinc-400"}`}>
+            ~{tokenEst} tokens
+          </span>
+          {isOutsideWindow && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500 border border-zinc-700/50">
+              Outside Last {config.sliceLastNTurns} Window
+            </span>
+          )}
+          {isThoughtOmitted && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500/70 border border-amber-500/20">
+              Thought Omitted by Preset
+            </span>
+          )}
+          {isContentOmitted && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500">
+              Omitted (Thoughts Only Mode)
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-1">
@@ -99,15 +141,25 @@ export const TurnCard: React.FC<TurnCardProps> = ({ turn, docId }) => {
 
       {/* Python Code Execution Tray */}
       {turn.codeExecution && (
-        <div className="mb-2 bg-emerald-500/5 border border-emerald-500/20 rounded-md p-2 text-xs flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
+        <div className={`mb-2 rounded-md p-2 text-xs flex items-center justify-between border ${
+          isCodeStripped
+            ? "bg-zinc-800/20 border-zinc-700/30 text-zinc-500"
+            : "bg-emerald-500/5 border-emerald-500/20 text-emerald-400"
+        }`}>
+          <div className="flex items-center gap-1.5 font-medium">
             <Terminal size={13} />
-            <span>Python Execution Logs Attached</span>
+            <span>
+              {isCodeStripped
+                ? "Code Execution Stripped by Settings"
+                : isOutputStripped
+                ? "Python Code Kept (Output Logs Stripped)"
+                : "Python Execution & Output Logs Included"}
+            </span>
           </div>
           <button
             onClick={() => deleteTurnCodeExec(docId, turn.id)}
             className="text-zinc-500 hover:text-rose-400"
-            title="Strip code execution log"
+            title="Permanently remove code execution data"
           >
             <Trash2 size={12} />
           </button>
