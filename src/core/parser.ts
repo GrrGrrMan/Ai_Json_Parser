@@ -21,6 +21,33 @@ export function sanitizeJsonString(raw: string): string {
 }
 
 /**
+ * Extract system instructions from AI Studio and Gemini exports if present.
+ */
+export function extractSystemInstruction(data: any): string {
+  if (!data || typeof data !== "object") return "";
+
+  // Structure 1: Root systemInstruction.parts
+  if (Array.isArray(data?.systemInstruction?.parts)) {
+    return data.systemInstruction.parts
+      .map((p: any) => (typeof p?.text === "string" ? p.text.trim() : ""))
+      .filter(Boolean)
+      .join("\n\n");
+  }
+
+  // Structure 2: chunkedPrompt.systemInstruction
+  const chunkedSys = data?.chunkedPrompt?.systemInstruction;
+  if (typeof chunkedSys === "string") return chunkedSys.trim();
+  if (Array.isArray(chunkedSys?.parts)) {
+    return chunkedSys.parts
+      .map((p: any) => (typeof p?.text === "string" ? p.text.trim() : ""))
+      .filter(Boolean)
+      .join("\n\n");
+  }
+
+  return "";
+}
+
+/**
  * Normalizes different Google AI Studio and Gemini API export schemas.
  */
 export function parseAiStudioJson(rawText: string, fileName: string): ConversationDocument {

@@ -30,6 +30,11 @@ export const DEFAULT_CONFIG: ExportConfig = {
   sliceLastNTurns: 0,
 };
 
+export interface IngestionWarning {
+  fileName: string;
+  reason: string;
+}
+
 interface WorkspaceState {
   documents: ConversationDocument[];
   selectedDocIds: string[];
@@ -37,6 +42,11 @@ interface WorkspaceState {
   config: ExportConfig;
   activeTab: "editor" | "preview" | "raw";
   isPasteModalOpen: boolean;
+
+  // Ingestion diagnostics
+  ingestionWarnings: IngestionWarning[];
+  addIngestionWarnings: (warnings: IngestionWarning[]) => void;
+  clearIngestionWarnings: () => void;
 
   // Lifecycle
   initStore: () => Promise<void>;
@@ -74,6 +84,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   config: DEFAULT_CONFIG,
   activeTab: "editor",
   isPasteModalOpen: false,
+
+  ingestionWarnings: [],
+  addIngestionWarnings: (warnings) =>
+    set((state) => ({ ingestionWarnings: [...state.ingestionWarnings, ...warnings] })),
+  clearIngestionWarnings: () => set({ ingestionWarnings: [] }),
 
   initStore: async () => {
     const [savedDocs, savedConfig] = await Promise.all([

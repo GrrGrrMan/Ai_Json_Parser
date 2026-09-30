@@ -1,48 +1,19 @@
 import React, { useRef } from "react";
 import { Upload, FileCode, ClipboardList } from "lucide-react";
 import { useWorkspaceStore } from "../store/useWorkspaceStore";
-import { parseAiStudioJson } from "../core/parser";
-import { unzipSync, strFromU8 } from "fflate";
-import { ConversationDocument } from "../core/types";
+import { processInputFiles } from "../core/fileProcessor";
 
 export const Dropzone: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { addDocuments, setPasteModalOpen } = useWorkspaceStore();
+  const { addDocuments, setPasteModalOpen, addIngestionWarnings } = useWorkspaceStore();
 
   const handleFiles = async (files: FileList | File[]) => {
-    const loadedDocs: ConversationDocument[] = [];
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-
-      if (file.name.toLowerCase().endsWith(".zip")) {
-        const buffer = await file.arrayBuffer();
-        const unzipped = unzipSync(new Uint8Array(buffer));
-
-        for (const [path, data] of Object.entries(unzipped)) {
-          if (!path.endsWith("/") && !path.includes("__MACOSX/") && path.toLowerCase().endsWith(".json")) {
-            try {
-              const text = strFromU8(data);
-              const doc = parseAiStudioJson(text, path.split("/").pop() || path);
-              loadedDocs.push(doc);
-            } catch (err) {
-              console.warn(`Failed to parse zipped item ${path}:`, err);
-            }
-          }
-        }
-      } else {
-        try {
-          const text = await file.text();
-          const doc = parseAiStudioJson(text, file.name);
-          loadedDocs.push(doc);
-        } catch (err) {
-          alert(`Error reading ${file.name}: ${err instanceof Error ? err.message : String(err)}`);
-        }
-      }
+    const { loaded, skipped } = await processInputFiles(files);
+    if (loaded.length > 0) {
+      addDocuments(loaded);
     }
-
-    if (loadedDocs.length > 0) {
-      addDocuments(loadedDocs);
+    if (skipped.length > 0) {
+      addIngestionWarnings(skipped);
     }
   };
 

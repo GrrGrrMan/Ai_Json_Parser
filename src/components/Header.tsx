@@ -1,10 +1,14 @@
 import React from "react";
-import { MessageSquareText, Download } from "lucide-react";
+import { MessageSquareText, Download, SlidersHorizontal } from "lucide-react";
 import { useWorkspaceStore } from "../store/useWorkspaceStore";
 import { zipSync, strToU8 } from "fflate";
 import { compileDocument } from "../core/formatter";
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  onOpenSettings?: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
   const { documents, selectedDocIds, config } = useWorkspaceStore();
 
   const handleDownloadSelectedZip = () => {
@@ -40,18 +44,30 @@ export const Header: React.FC = () => {
           <h1 className="text-sm font-semibold tracking-tight text-zinc-100">
             AI Studio Chat Exporter
           </h1>
-          <p className="text-xs text-zinc-400">Turn raw JSON logs into Obsidian vaults, LLM context, or clean prose</p>
+          <p className="text-xs text-zinc-400 hidden sm:block">
+            Turn raw JSON logs into Obsidian vaults, LLM context, or clean prose
+          </p>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            className="lg:hidden flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/50 transition-colors"
+            title="Open export settings"
+          >
+            <SlidersHorizontal size={14} />
+            <span className="hidden sm:inline">Settings</span>
+          </button>
+        )}
         {selectedDocIds.length > 0 && (
           <button
             onClick={handleDownloadSelectedZip}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
           >
             <Download size={14} />
-            <span>Export Selected ({selectedDocIds.length}) as ZIP</span>
+            <span>Export Selected ({selectedDocIds.length})</span>
           </button>
         )}
         <a

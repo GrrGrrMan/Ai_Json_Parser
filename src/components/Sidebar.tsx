@@ -3,8 +3,17 @@ import { Settings2, ShieldCheck, Scissors, Sparkles, RotateCcw } from "lucide-re
 import { useWorkspaceStore, DEFAULT_CONFIG } from "../store/useWorkspaceStore";
 import { ExportPreset, OutputFormat, ThoughtMode, CodeExecMode } from "../core/types";
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  onActionComplete?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ onActionComplete }) => {
   const { config, updateConfig, setPreset } = useWorkspaceStore();
+
+  const handleSelectPreset = (p: ExportPreset) => {
+    setPreset(p);
+    onActionComplete?.();
+  };
 
   return (
     <aside className="w-80 flex flex-col gap-4 flex-shrink-0">
